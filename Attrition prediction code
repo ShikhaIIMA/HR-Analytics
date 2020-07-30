@@ -1,0 +1,509 @@
+setwd("C:/Users/Shikha/Google Drive/E drive/Term IV/AMDA/AMDA Project")
+hr_data<-read.table("IBM HR dataset.csv",header = TRUE,sep=",")
+library("party")
+library("car")
+library(MASS)
+library(cluster)
+library(MLmetrics)
+library(vegan)
+library(party)
+library(lmtest)
+library(e1071)
+library(stats)
+library(pROC)
+library(caret)
+library(knncat)
+library(ElemStatLearn)
+library(randomForest)
+#lOGISTIC REGRESSION
+#Treating categorical variables
+educ_ind<-ifelse(hr_data$Education<3,0,1)
+envsat_ind<-ifelse(hr_data$EnvironmentSatisfaction<3,0,1)
+jobinv_ind<-ifelse(hr_data$JobInvolvement<3,0,1)
+jobsat_ind<-ifelse(hr_data$JobSatisfaction<3,0,1)
+perfrate_ind<-ifelse(hr_data$PerformanceRating<4,0,1)
+relsat_ind<-ifelse(hr_data$RelationshipSatisfaction<3,0,1)
+wklifebal_ind<-ifelse(hr_data$RelationshipSatisfaction<4,0,1)
+gender_ind<-ifelse(hr_data$Gender=="Male",0,1)
+joblvl_ind<-ifelse(hr_data$JobLevel<3,0,1)
+married_ind<-ifelse(hr_data$MaritalStatus=="Single",0,1)
+overtime_ind<-ifelse(hr_data$OverTime=="No",0,1)
+stock_ind<-ifelse(hr_data$StockOptionLevel<3,0,1)
+attrition_ind<-ifelse(hr_data$Attrition=="No",0,1)
+hr_data1<-cbind(hr_data,attrition_ind,educ_ind,envsat_ind,jobinv_ind,jobsat_ind,perfrate_ind,relsat_ind,wklifebal_ind,gender_ind,stock_ind,joblvl_ind,married_ind,overtime_ind)
+hr_data2<-subset(hr_data1,select=c(attrition_ind,PercentSalaryHike,MonthlyIncome,DistanceFromHome,TotalWorkingYears,YearsAtCompany,YearsInCurrentRole,YearsSinceLastPromotion,YearsWithCurrManager,DailyRate,TrainingTimesLastYear,educ_ind,envsat_ind,jobinv_ind,jobsat_ind,perfrate_ind,relsat_ind,wklifebal_ind,gender_ind,stock_ind,joblvl_ind,married_ind,overtime_ind))
+hr_data3<-subset(hr_data1,select=c(ï..Age,attrition_ind,educ_ind,married_ind,gender_ind,YearsAtCompany,jobsat_ind,PercentSalaryHike,wklifebal_ind,relsat_ind,jobinv_ind,perfrate_ind,TotalWorkingYears))
+#Creating training and test data
+df<-hr_data3
+require(caTools)
+fractionTraining<- 0.60
+fractionValidation<- 0.20
+fractionTest<- 0.20
+# Compute sample sizes.
+sampleSizeTraining<- floor(fractionTraining*nrow(hr_data3))
+sampleSizeValidation<- floor(fractionValidation*nrow(hr_data3))
+sampleSizeTest<- floor(fractionTest*nrow(hr_data3))
+# Create the randomly-sampled indices for the dataframe. Use setdiff() to
+# avoid overlapping subsets of indices.
+set.seed(111)
+indicesTraining <- sort(sample(seq_len(nrow(hr_data3)), size=sampleSizeTraining))
+indicesNotTraining<- setdiff(seq_len(nrow(hr_data3)), indicesTraining)
+indicesValidation <- sort(sample(indicesNotTraining, size=sampleSizeValidation))
+indicesTest<- setdiff(indicesNotTraining, indicesValidation)
+# Finally, output the three dataframes for training, validation and test.
+train<-hr_data3[indicesTraining, ]
+Validation<-hr_data3[indicesValidation, ]
+test<- hr_data3[indicesTest, ]
+#Choosing variables based on training data
+logit_reg1<-glm(attrition_ind~YearsAtCompany+jobsat_ind,family=binomial,data = train)
+logit_reg2<-glm(attrition_ind~YearsAtCompany+jobsat_ind+relsat_ind+wklifebal_ind,family=binomial,data = train)
+logit_reg3<-glm(attrition_ind~YearsAtCompany+jobsat_ind+perfrate_ind,family=binomial,data = train)
+logit_reg4<-glm(attrition_ind~YearsAtCompany+jobsat_ind+jobinv_ind,family=binomial,data = train)
+logit_reg5<-glm(attrition_ind~YearsAtCompany+jobsat_ind+jobinv_ind+ï..Age,family=binomial,data = train)
+logit_reg6<-glm(attrition_ind~YearsAtCompany+jobsat_ind+jobinv_ind+ï..Age,family=binomial,data = train)
+logit_reg7<-glm(attrition_ind~YearsAtCompany+jobsat_ind+jobinv_ind+ï..Age+PercentSalaryHike,family=binomial,data = train)
+#removing percent salary hike
+logit_reg8<-glm(attrition_ind~YearsAtCompany+jobsat_ind+jobinv_ind+ï..Age+married_ind,family=binomial,data = train)
+logit_reg9<-glm(attrition_ind~educ_ind+YearsAtCompany+jobsat_ind+jobinv_ind+ï..Age+married_ind,family=binomial,data = train)
+#removing educ
+logit_reg10<-glm(attrition_ind~gender_ind+YearsAtCompany+jobsat_ind+jobinv_ind+ï..Age+married_ind,family=binomial,data = train)
+#removing gender
+#Final Model
+logit_reg_final<-glm(attrition_ind~YearsAtCompany+jobsat_ind+jobinv_ind+ï..Age+married_ind,family=binomial,data = train)
+#Null deviance>residual deviance-covariates have explanatory power
+
+#####################
+#inserted code
+
+summary(logit_reg_final)
+#Null deviance>residual deviance-covariates have explanatory power
+
+plot(logit_reg_final)
+
+plot(logit_reg_final,which=c(4))
+
+#Check for outliers by plotting graphs 
+#Remove outliers and rename data as train_no and rerun final model
+train_no<-train[-c(596,750,127),]
+logit_reg_final_noOutliers<-glm(attrition_ind~YearsAtCompany+jobsat_ind+jobinv_ind
+                                +ï..Age+married_ind,family=binomial,data = train_no)
+
+summary(logit_reg_final_noOutliers)
+
+plot(logit_reg_final_noOutliers)
+
+plot(logit_reg_final_noOutliers,which=c(4))
+
+#####################
+
+# ROC and AUC Curve
+
+# threshold value at which misclassification rate is minimum and its loop
+
+#for(p in seq(.05,.95,.05)){
+tab1=table(fitted(logit_reg_final_noOutliers)>p,train_no$attrition_ind)
+cat(p,(tab1[2,1]+tab1[1,2])/sum(tab1),"\n")
+#}
+
+logit_reg_final_noOutliers_test<-glm(attrition_ind~YearsAtCompany+jobsat_ind+jobinv_ind+ï..Age+married_ind,family=binomial,data = test)
+
+for(p in seq(.05,.95,.05)){
+  tab2=table(fitted(logit_reg_final_noOutliers_test)>p,test$attrition_ind)
+  cat(p,(tab2[2,1]+tab2[1,2])/sum(tab2),"\n")
+}
+
+
+
+# Threshold value is 0.35 and 
+#minimized misclassification erroris 0.1394558 and not the cost associated 
+
+pred_attr <-predict(logit_reg_final_noOutliers,test,type="response")
+head(pred_attr)
+
+library(pROC)
+#roc1 using the predicted values from test data 
+roc1=roc(test$attrition_ind,pred_attr)
+roc1
+plot(roc1)
+auc(roc1)
+
+# F1 score 
+
+pred<-ifelse(predict(logit_reg_final_noOutliers,test,type="response")<0.35,0,1)
+
+library(MLmetrics)
+F1_Score(pred,test$attrition_ind,positive=NULL)
+#F1_Score(pred1,train_no$attrition_ind,positive = NULL)
+
+library(MLmetrics)
+table<-ConfusionMatrix(pred,test$attrition_ind)
+table
+#ConfusionMatrix(pred1,train_no$attrition_ind)
+
+#Misclassification Rate 
+1-sum(diag(table))/sum(table)
+
+# Accuracy, Sensitivity and Specificity 
+
+Accuracy(pred,test$attrition_ind)
+
+Sensitivity(test$attrition_ind,pred,positive = NULL)
+
+Specificity(test$attrition_ind,pred,positive=NULL)
+
+# Precision 
+
+Precision(test$attrition_ind,pred,positive=NULL)
+
+# Recall 
+
+Recall(test$attrition_ind,pred,positive=NULL)
+
+# Cost of misclassification 
+#cost_of_misclassifcation<-fneg*cost_YN+fpos*cost_NY
+
+#Total cost of misclassification
+#Cost of classifying attrition as no attrition(risk of losing employee)
+cost_YN<-750
+#Cost of classifying no attrition as attrition-extra spend on re-engagement but increases satisfaction
+cost_NY<-100
+
+cost_vec<-0
+for(p in seq(.05,.95,.05)){
+  pred<-ifelse(predict(logit_reg_final,test,type="response")<p,0,1)
+  fpos<-ifelse(test$attrition_ind<pred,1,0)
+  fneg<-ifelse(test$attrition_ind>pred,1,0)
+  mis_cost<-750*sum(fneg)+100*sum(fpos)
+  cost_vec<-c(cost_vec,mis_cost)}
+
+cost_vec
+
+sort(cost_vec)
+
+# threshold value at which cost is minimum is 0.30
+
+pred1<-ifelse(predict(logit_reg_final_noOutliers,test,type="response")<0.30,0,1)
+
+library(MLmetrics)
+F1_Score(pred1,test$attrition_ind,positive=NULL)
+
+
+library(MLmetrics)
+table1<-ConfusionMatrix(pred1,test$attrition_ind)
+table1
+
+
+#Misclassification Rate 
+1-sum(diag(table1))/sum(table1)
+
+# Accuracy, Sensitivity and Specificity 
+
+acc_logit<-Accuracy(pred1,test$attrition_ind)
+
+Sensitivity(test$attrition_ind,pred1,positive = NULL)
+
+Specificity(test$attrition_ind,pred1,positive=NULL)
+
+# Precision 
+
+Precision(test$attrition_ind,pred1,positive=NULL)
+
+# Recall 
+
+Recall(test$attrition_ind,pred1,positive=NULL)
+
+
+
+
+# Show that final model is a good fit
+red_model<-glm(attrition_ind~ 1,family=binomial,data = train)
+fit_test<-anova(red_model,logit_reg_final,test="Chisq")
+
+red_model1<-glm(attrition_ind~ 1,family=binomial,data = train_no)
+fit_test1<-anova(red_model1,logit_reg_final_noOutliers,test="Chisq")
+#Low p value rejects null hypothesis that all betas are zero
+
+#######################End of inserted code 
+
+# Show that final model is a good fit
+red_model<-glm(attrition_ind~ 1,family=binomial,data = train)
+fit_test<-anova(red_model,logit_reg_final,test="Chisq")
+#Low p value rejects null hypothesis that all betas are zero-see reference word doc
+
+#Using validation data to test overlapping confidence intervals
+coffs_train<-summary(logit_reg_final)$coefficients[,2]
+se_train<-sqrt(diag(vcov(logit_reg_final)))
+CI_train_low<-coffs_train-3*se_train
+CI_train_high<-coffs_train+3*se_train
+CI_all<-cbind(CI_train_low,CI_train_high)
+#Run same model on validation set
+logit_validation<-glm(attrition_ind~YearsAtCompany+jobsat_ind+jobinv_ind+ï..Age+married_ind,family=binomial,data = Validation)
+coffs_validation<-summary(logit_validation)$coefficients[,2]
+se_validation<-sqrt(diag(vcov(logit_validation)))
+CI_validation_low<-coffs_validation-3*se_validation
+CI_validation_high<-coffs_validation+3*se_validation
+CI_all<-cbind(CI_all,CI_validation_low,CI_validation_high)
+
+#Adjudging model fit-based on test data
+pred_prob<-predict(logit_reg_final,test, type="response")
+#Classifying as zero and one
+##To DO -Choosing right threshold
+#Total cost of misclassification
+#Cost of classifying attrition as no attrition(risk of losing employee)
+cost_YN<-750
+#Cost of classifying no attrition as attrition-extra spend on re-engagement but increases satisfaction
+cost_NY<-100
+cost_of_misclassifcation<-fneg*cost_YN+fpos*cost_NY
+for (k in 0.1*(seq(0,10,1)){
+  cost_of_misclassifcation<-0
+  pred_flag<-ifelse(pred_prob<k,0,1)
+  print(k)
+  #True positives
+  tpos[k]<-ifelse((pred_flag+test$attrition_ind)==2,1,0)
+  fpos[k]<-ifelse((pred_flag>test$attrition_ind),1,0)
+  tneg[k]<-ifelse((pred_flag+test$attrition_ind)==0,1,0)
+  fneg[k]<-ifelse((pred_flag<test$attrition_ind),1,0)
+  accuracy[k]<-sum(tpos[k]+tneg[k])/nrow(test)
+  ##Finf c tht minimises cost of misclassification
+  cost_of_misclassifcation[k]<-fneg[k]*cost_YN+fpos[k]*cost_NY
+}
+##Finf c tht minimises cost of misclassification
+pred_flag<-ifelse(pred_prob<0.5,0,1)
+#True positives
+tpos<-ifelse((pred_flag+test$attrition_ind)==2,1,0)
+fpos<-ifelse((pred_flag>test$attrition_ind),1,0)
+tneg<-ifelse((pred_flag+test$attrition_ind)==0,1,0)
+fneg<-ifelse((pred_flag<test$attrition_ind),1,0)
+accuracy<-sum(tpos+tneg)/nrow(test)
+##Finf c tht minimises cost of misclassification
+cost_of_misclassifcation<-fneg*cost_YN+fpos*cost_NY
+
+
+########ROC Curve######## TO DO
+
+
+#K-fold validation-TO DO- process of traininga and test data repeated k-times
+library(plyr)   # progress bar
+library(caret)  # confusion matrix
+# False positive rate
+fpr <- NULL
+# False negative rate
+fnr <- NULL
+# Number of iterations
+k <- 500
+# Initialize progress bar
+pbar <- create_progress_bar('text')
+pbar$init(k)
+# Accuracy
+acc <- NULL
+set.seed(123)
+for(i in 1:k)
+{
+  # Train-test splitting
+  # 95% of samples -> fitting
+  # 5% of samples -> testing
+  smp_size <- floor(0.95 * nrow(hr_data3))
+  index <- sample(seq_len(nrow(hr_data3)),size=smp_size)
+  train2 <- hr_data3[index, ]
+  test2 <- hr_data3[-index, ]
+  # Fitting
+  model <-glm(attrition_ind~YearsAtCompany+jobsat_ind+jobinv_ind+ï..Age+married_ind,family=binomial,data = train2)
+  # Predict results
+  results_prob<- predict(model,subset(test2),type='response')
+  # If prob > 0.5 then 1, else 0
+  results <- ifelse(results_prob > 0.5,1,0)
+  #Actual answers
+  answers <- test2$attrition_ind
+  # Accuracy calculation
+  misClasificError <- mean(answers != results)
+  # Collecting results
+  acc[i] <- 1-misClasificError
+  
+  # Confusion matrix
+  cm <- confusionMatrix(data=results, reference=answers)
+  fpr[i] <- cm$table[2]/(nrow(hr_data3)-smp_size)
+  fnr[i] <- cm$table[3]/(nrow(hr_data3)-smp_size)
+  
+  pbar$step()
+}
+
+# Average accuracy of the model
+mean(acc)
+min(acc)
+max(acc)
+# Histogram of accuracy
+hist(acc,xlab='Accuracy',ylab='Freq',
+     col='cyan',border='blue',density=30)
+# Confusion matrix and plots of fpr and fnr
+mean(fpr)
+mean(fnr)
+hist(fpr,xlab='% of fnr',ylab='Freq',main='FPR',
+     col='cyan',border='blue',density=30)
+hist(fnr,xlab='% of fnr',ylab='Freq',main='FNR',
+     col='cyan',border='blue',density=30)
+
+
+#K Nearest Neighbour Algorithm with original variables
+library(caret)
+library(knncat)
+train_knn<-train
+
+#Deciding Optimal K
+set.seed(400)
+ctrl <- trainControl(method="repeatedcv",repeats = 3)
+knnFit <- train(attrition_ind~YearsAtCompany+jobsat_ind+jobinv_ind+ï..Age+married_ind, data = train, method = "knn", trControl = ctrl, preProcess = c("center","scale"),tuneLength = 20)
+knnFit
+
+knn_1<-knn3(attrition_ind~YearsAtCompany+jobsat_ind+jobinv_ind+ï..Age+married_ind,data=train,k=43)
+pred_knn1<-predict(knn_1,test)
+knn1_noattrition<-pred_knn1[,1]
+knn1_attrition<-pred_knn1[,2]
+class_knn1<-ifelse(knn1_attrition>knn1_noattrition,1,0)
+tneg_knn<-ifelse(test$attrition_ind+class_knn1==0,1,0)
+fneg_knn<-ifelse(test$attrition_ind>class_knn1,1,0)
+tpos_knn<-ifelse(test$attrition_ind+class_knn1==2,1,0)
+fpos_knn<-ifelse(test$attrition_ind<class_knn1,1,0)
+acc_knn<-(sum(tpos_knn)+sum(tneg_knn))/nrow(test)
+
+
+
+
+#K Nearest Neighbour Algorithm with normalised variables
+age_norm<-(hr_data3$ï..Age-min(hr_data3$ï..Age))/(max(hr_data3$ï..Age)-min(hr_data3$ï..Age))
+YearsAtCompany_norm<-(hr_data3$YearsAtCompany-min(hr_data3$YearsAtCompany))/(max(hr_data3$YearsAtCompany)-min(hr_data3$YearsAtCompany))
+data_knn<-cbind(hr_data3,age_norm,YearsAtCompany_norm)
+train_knn_size<- floor(0.8*nrow(data_knn))
+test_knn_size<- floor(0.2*nrow(data_knn))
+# Create the randomly-sampled indices for the dataframe. Use setdiff() to
+# avoid overlapping subsets of indices.
+set.seed(123)
+indicesTraining_knn <- sort(sample(seq_len(nrow(data_knn)), size=train_knn_size))
+# Finally, output the three dataframes for training, validation and test.
+train_knn<-data_knn[indicesTraining_knn, ]
+test_knn<- data_knn[-indicesTraining_knn, ]
+#KNN with normalised variables
+knn_norm<-knn3(attrition_ind~YearsAtCompany_norm+jobsat_ind+jobinv_ind+age_norm+married_ind,data=train_knn,k=43)
+pred_knn_norm<-predict(knn_norm,test_knn)
+knn_norm_noattrition<-pred_knn_norm[,1]
+knn_norm_attrition<-pred_knn_norm[,2]
+class_knn_norm<-ifelse(knn_norm_attrition>knn1_noattrition,1,0)
+tneg_knn_norm<-ifelse(test$attrition_ind+class_knn_norm==0,1,0)
+fneg_knn_norm<-ifelse(test$attrition_ind>class_knn_norm,1,0)
+tpos_knn_norm<-ifelse(test$attrition_ind+class_knn_norm==2,1,0)
+fpos_knn_norm<-ifelse(test$attrition_ind<class_knn_norm,1,0)
+acc_knn_norm<-(sum(tpos_knn_norm)+sum(tneg_knn_norm))/nrow(test)
+#Accuracy improves by 1% but theoretically its the best way to normalise variables
+
+
+
+
+##########################################################################################
+
+
+
+##Clustering
+df_mat<-hr_data3[,c("YearsAtCompany","jobsat_ind","jobinv_ind","ï..Age","married_ind","attrition_ind")]
+gow.mat<-vegdist(df_mat,method = "gower")
+clusters<-pam(gow.mat,k=5,diss = TRUE)
+df_mat1<-cbind(df_mat,clusters$clustering)
+colnames(df_mat1)[colnames(df_mat1) == 'clusters$clustering'] <- 'cluster_label'
+tapply(df_mat1$YearsAtCompany,df_mat1$cluster_label,mean)
+tapply(df_mat1$jobsat_ind,df_mat1$cluster_label,count)
+tapply(df_mat1$jobinv_ind,df_mat1$cluster_label,count)
+tapply(df_mat1$married_ind,df_mat1$cluster_label,count)
+tapply(df_mat1$ï..Age,df_mat1$cluster_label,mean)
+tapply(df_mat1$attrition_ind,df_mat1$cluster_label,count)
+
+clusters2<-hclust(gow.mat)
+plot(clusters2)
+clust_cut<-cutree(clusters2,3)
+
+
+#Using rpart()
+# Classification Tree with rpart
+library(rpart)
+library(rpart.plot)
+# grow tree 
+fit_rpart <- rpart(attrition_ind~YearsAtCompany+factor(jobsat_ind)+factor(jobinv_ind)+ï..Age+factor(married_ind),data=train,method="class",control=rpart.control(minsplit=20,cp=0))
+#Examine tree
+prp(fit_rpart, type = 1,extra=106, ycompress = TRUE,uniform=TRUE, branch=0, yesno=2, fallen.leaves = TRUE,,tweak=5,border.col=0, xsep="/")
+tree_post<-post(fit_rpart,file = "treepolot.jpg",title = "Classification Tree for")
+
+
+#Prune
+pfit<- prune(fit_rpart, cp=fit_rpart$cptable[which.min(fit_rpart$cptable[,"xerror"]),"CP"])
+rpart.plot(x = pfit,type = 4,extra = 6,under = FALSE,fallen.leaves = TRUE,tweak = 1.5)
+
+
+plot(fit_rpart)
+text(fit_rpart)
+text(fit_rpart,pretty = 0)
+#Performance on test data
+pred_tree<-predict(fit_rpart, newdata=test)
+pred_tree_flag<-ifelse(pred_tree[,2]>pred_tree[,1],1,0)
+library(caret)
+cm_tree<-confusionMatrix(pred_tree_flag, test$attrition_ind)
+acc_tree<-Accuracy(pred_tree_flag,test$attrition_ind)
+
+rpart.plot(x = fit_rpart,type = 4,extra = 6,under = FALSE,fallen.leaves = TRUE,tweak = 4)
+
+
+
+#Training Tree with k fold cross validation
+trctrl <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
+set.seed(3333)
+dtree_fit <- train(attrition_ind~YearsAtCompany+factor(jobsat_ind)+factor(jobinv_ind)+ï..Age+factor(married_ind), data = train, method = "rpart",parms = list(split = "information"),trControl=trctrl,tuneLength = 10)
+prp(dtree_fit$finalModel, box.palette = "Reds", tweak = 1.2)
+#Checking accuracy
+pred_tree_2<-predict(dtree_fit, newdata=test)
+pred_tree_flag2<-ifelse(pred_tree_2>0.5,1,0)
+library(caret)
+confusionMatrix(pred_tree_flag2, test$attrition_ind)
+
+
+#Random Forest
+set.seed(3276)
+rf.train.set <- na.roughfix(train)
+#Tell RF that response variable is a factor, not a continuous variable
+hr_data3$attrition_ind <- as.factor(hr_data3$attrition_ind)
+rf.model <- randomForest(attrition_ind~YearsAtCompany+jobinv_ind+ï..Age+married_ind+jobsat_ind, data=hr_data3,mtry=1)
+# Visualize the model
+plot(rf.model, main="Random Forest Model")
+#View forest results
+print(rf.model)
+#Variable importance
+print(importance(rf.model,type = 2)) 
+#Identifying zero correctly but not 1(attrition)
+#Not a good technique for imbalanced dataset-more observations of one type
+#no attrition 1233 out of 1470 obs=83%
+
+
+#SVM
+svmhr<-svm(as.factor(attrition_ind)~YearsAtCompany+jobinv_ind+ï..Age+married_ind+jobsat_ind, data=train, cost=10000, gamma=1)
+svm.pred<-predict(svmhr, newdata = test,type=c("response"))
+confmat_svm<-table(svm.pred,test$attrition_ind)
+acc_svm<-sum(diag(confmat_svm))/sum(confmat_svm)
+
+
+#Creating ensemble of logit+Normalised KNN+Classification Tree+SVM
+#Storing prediction 0/1 of different models
+#Weighted average doesn't make sense for categorical outcome
+predicted_logit<-pred1
+predicted_KNN<-class_knn_norm
+predicted_tree<-pred_tree_flag
+predicted_SVM<-svm.pred
+df_ensemble<-cbind(predicted_KNN,predicted_logit,predicted_SVM,predicted_tree)
+actual_atrrflag<-test$attrition_ind
+acc_logit<-acc_logit
+acc_knn_norm<-acc_knn_norm
+acc_tree<-acc_tree
+acc_svm<-acc_svm
+wgts<-cbind(acc_logit,acc_knn,acc_tree,acc_svm)
+
+#Calculating number of '1' votes
+wgt_avg<-crossprod(df_ensemble,wgt_mat)
+one_votes<-rowSums(df_ensemble==1)
+ensemble_flag<-ifelse(one_votes>2,1,0)
+table(ensemble_flag)
+Accuracy(ensemble_flag,test$attrition_ind)
+
