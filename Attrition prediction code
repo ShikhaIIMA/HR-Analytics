@@ -1,4 +1,4 @@
-setwd("C:/Users/Shikha/Google Drive/E drive/Term IV/AMDA/AMDA Project")
+
 hr_data<-read.table("IBM HR dataset.csv",header = TRUE,sep=",")
 library("party")
 library("car")
